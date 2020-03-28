@@ -35,7 +35,8 @@ else:
 
 
 
-if (reduction_type != 'bias') or (reduction_type != 'dark') or (reduction_type != 'opticflat') or (reduction_type != 'biasdarksub') or (reduction_type != 'science'):
+
+if not((reduction_type =='bias') or (reduction_type == 'dark') or (reduction_type == 'opticflat') or (reduction_type == 'biasdarksub') or (reduction_type == 'science')):
     print('\n\tWrong Reduction Type. Choose from "bias", "dark", "opticflat", "biasdarksub", "science"\n')
     exit()
 
