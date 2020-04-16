@@ -8,7 +8,7 @@ Usage:
     In target directory:
     $ python path_to_script/make_bias_dark_opticflat_biasdarksub_science.py filelist.txt type
 
-    type: bias, dark, opticflat, biasdarksub, science
+    type: bias, dark, opticflat, biasdarksub, science, biasdarksub2science
 
 This python script defines functions to make bias.fits, dark300.fits, dark600.fits, optic flats, 
 biasdarksub_xxx.fits and science_xxx.fits. For unnecessary re-running this script, 
@@ -238,8 +238,7 @@ def make_biasdarksub():
 
 
         with fits.open(filelists[i]) as im0:
-            hlisti = []
-            hlistw = []
+            hlisti = [] 
             for j in range(1, namp):
                 nxb0, nxb1, nyb0, nyb1, nxd0, nxd1, nyd0, nyd1 = find_overscan(im0[j].header['biassec'], im0[j].header['datasec'])
                 im = im0[j].data[nxd0:nxd1+1, nyd0:nyd1+1]
@@ -308,7 +307,6 @@ def make_science():
 
         with fits.open(filelists[i]) as im0:
             hlisti = []
-            hlistw = []
             for j in range(1, namp):
                 nxb0, nxb1, nyb0, nyb1, nxd0, nxd1, nyd0, nyd1 = find_overscan(im0[j].header['biassec'], im0[j].header['datasec'])
                 im = im0[j].data[nxd0:nxd1+1, nyd0:nyd1+1]
@@ -339,6 +337,40 @@ def make_science():
 
 
 
+# Define function that takes biasdarksub and make it corrected frame (only perform flat division)
+def biasdarksub2science():
+    for i in range(len(filelists)):
+        print('Making corrected frame from: \t'+filelists[i].split('/')[-1])
+
+        filt = fits.getheader(filelists[i])['filter'].lower()
+        month = fits.getheader(filelists[i])['date'].split('-')[1]
+        if month == '02':
+            month_dir = '/twilight_flats/Feb/'
+            month_string = 'feb'
+        elif month == '03':
+            month_dir = '/twilight_flats/Mar/'
+            month_string = 'mar'
+        flatfile = bias_dark_flats_dir+month_dir+'flat_'+filt+'_'+month_string+'.fits'
+
+        with fits.open(filelists[i]) as im0:
+            hlisti = []
+            for j in range(1,17):
+                im = im0[j].data
+                flat = fits.getdata(flatfile, j)
+                dat = im/flat
+
+                hduIi = fits.ImageHDU()
+                hduIi.data = dat
+                hduIi.header = im0[j].header
+                hduIi.header['BZERO'] = 0.0
+                hlisti.append(hduIi)
+
+            hdu0i = fits.PrimaryHDU()
+            hdu0i.header = im0[0].header
+            hlisti.insert(0,hdu0i)
+
+        hduAi = fits.HDUList(hlisti)
+        hduAi.writeto(filelists[i].replace('biasdarksub_','corrected_'))
 
 
 
@@ -356,7 +388,8 @@ if reduction_type == 'biasdarksub':
     make_biasdarksub()
 if reduction_type == 'science':
     make_science()
-
+if reduction_tpye == 'biasdarksub2science':
+    biasdarksub2science()
  
 
 
