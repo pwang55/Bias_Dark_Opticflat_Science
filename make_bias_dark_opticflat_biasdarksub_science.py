@@ -14,6 +14,8 @@ This python script defines functions to make bias.fits, dark300.fits, dark600.fi
 biasdarksub_xxx.fits and science_xxx.fits. For unnecessary re-running this script, 
 it will find and use existing bias/dark/optic/twilight flat... from environment variable $_90PRIME_BIAS_DARK_FLATS_DIR
 
+Note: "science" here means corrected frame, not the final masked science frame for stacking
+
 
 """
 
@@ -36,8 +38,8 @@ else:
 
 
 
-if not((reduction_type =='bias') or (reduction_type == 'dark') or (reduction_type == 'opticflat') or (reduction_type == 'biasdarksub') or (reduction_type == 'science')):
-    print('\n\tWrong Reduction Type. Choose from "bias", "dark", "opticflat", "biasdarksub", "science"\n')
+if not((reduction_type =='bias') or (reduction_type == 'dark') or (reduction_type == 'opticflat') or (reduction_type == 'biasdarksub') or (reduction_type == 'science') or (reduction_type =='biasdarksub2science')):
+    print('\n\tWrong Reduction Type. Choose from "bias", "dark", "opticflat", "biasdarksub", "science", "biasdarksub2science"\n')
     exit()
 
 
@@ -388,7 +390,7 @@ if reduction_type == 'biasdarksub':
     make_biasdarksub()
 if reduction_type == 'science':
     make_science()
-if reduction_tpye == 'biasdarksub2science':
+if reduction_type == 'biasdarksub2science':
     biasdarksub2science()
  
 
