@@ -8,7 +8,7 @@ Usage:
     In target directory:
     $ python path_to_script/make_bias_dark_opticflat_biasdarksub_science.py filelist.txt type
 
-    type: bias, dark, opticflat, biasdarksub, science, biasdarksub2science
+    type: bias, dark, opticflat, biasdarksub, science, biasdarksub2corrected
 
 This python script defines functions to make bias.fits, dark300.fits, dark600.fits, optic flats, 
 biasdarksub_xxx.fits and science_xxx.fits. For unnecessary re-running this script, 
@@ -36,8 +36,8 @@ else:
 
 
 
-if not((reduction_type =='bias') or (reduction_type == 'dark') or (reduction_type == 'opticflat') or (reduction_type == 'biasdarksub') or (reduction_type == 'science') or (reduction_type =='biasdarksub2science')):
-    print('\n\tWrong Reduction Type. Choose from "bias", "dark", "opticflat", "biasdarksub", "science", "biasdarksub2science"\n')
+if not((reduction_type =='bias') or (reduction_type == 'dark') or (reduction_type == 'opticflat') or (reduction_type == 'biasdarksub') or (reduction_type == 'science') or (reduction_type =='biasdarksub2corrected')):
+    print('\n\tWrong Reduction Type. Choose from "bias", "dark", "opticflat", "biasdarksub", "science", "biasdarksub2corrected"\n')
     exit()
 
 
@@ -338,7 +338,7 @@ def make_science():
 
 
 # Define function that takes biasdarksub and make it corrected frame (only perform flat division)
-def biasdarksub2science():
+def biasdarksub2corrected():
     for i in range(len(filelists)):
         print('Making corrected frame from: \t'+filelists[i].split('/')[-1])
 
@@ -388,8 +388,8 @@ if reduction_type == 'biasdarksub':
     make_biasdarksub()
 if reduction_type == 'science':
     make_science()
-if reduction_type == 'biasdarksub2science':
-    biasdarksub2science()
+if reduction_type == 'biasdarksub2corrected':
+    biasdarksub2corrected()
  
 
 
