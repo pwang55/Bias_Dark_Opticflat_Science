@@ -25,6 +25,10 @@ from scipy.signal import savgol_filter
 import re
 
 
+# Apply overscan or not. If set to False, the overscan region will still be thrown away
+apply_overscan = True
+
+
 # If input arguments arenn't exactly 2 of them (which makes len(sys.argv)=3), print docstring and end script, else take input arguments
 if len(sys.argv) !=3:
     print(__doc__)
@@ -90,6 +94,11 @@ def make_bias():
         ovsx = int(f[1].header['ovrscan2'])
         ny = f[1].header['naxis1'] - ovsy
         nx = f[1].header['naxis2'] - ovsx
+        month = f[0].header['date'].split('-')[1]
+        if month == '02':
+            month_string = 'feb'
+        elif month == '03':
+            month_string = 'mar'
 
     dat = zeros((n, nx, ny), dtype='float32')
     hlist = []
@@ -99,9 +108,12 @@ def make_bias():
             with fits.open(filelists[i]) as b:
                 nxb0, nxb1, nyb0, nyb1, nxd0, nxd1, nyd0, nyd1 = find_overscan(b[j].header['biassec'], b[j].header['datasec'])
                 dat[i] = b[j].data[nxd0:nxd1+1, nyd0:nyd1+1]
-                overscan0 = average(b[j].data[nxd0:nxd1+1, nyb0:nyb1+1], axis=1)
-                overscan1 = savgol_filter(overscan0, 201, 2)
-                dat[i] = dat[i] - overscan1[:,None]
+                if apply_overscan == True:
+                    overscan0 = average(b[j].data[nxd0:nxd1+1, nyb0:nyb1+1], axis=1)
+                    overscan1 = savgol_filter(overscan0, 201, 2)
+                    dat[i] = dat[i] - overscan1[:, None]
+                else:
+                    dat[i] = dat[i]
 
         hduI = fits.ImageHDU()
         hduI.data = median(dat, axis=0)
@@ -113,7 +125,10 @@ def make_bias():
     hdu0.header = fits.getheader(filelists[0])
     hlist.insert(0, hdu0)
     hduA = fits.HDUList(hlist)
-    hduA.writeto(target_path+'bias.fits')
+    if apply_overscan == True:
+        hduA.writeto(target_path + 'bias.fits')
+    else:
+        hduA.writeto(target_path + 'bias_' + month_string + '.fits')
 
 
 
@@ -121,6 +136,8 @@ def make_bias():
 # Define function to make dark300.fits and dark600.fits
 def make_dark(exptime=300):
     darkfiles = [ files for files in filelists if (fits.getheader(files)['EXPTIME']==exptime) ]
+    if len(darkfiles) == 0:
+        exit()
 
     print('Making dark'+str(exptime)+'.fits with following files:\n')
     for fname in darkfiles:
@@ -134,6 +151,11 @@ def make_dark(exptime=300):
         ovsx = int(f[1].header['ovrscan2'])
         ny = f[1].header['naxis1'] - ovsy
         nx = f[1].header['naxis2'] - ovsx
+        month = f[0].header['date'].split('-')[1]
+        if month == '02':
+            month_string = 'feb'
+        elif month == '03':
+            month_string = 'mar'
 
     dat = zeros((n, nx, ny), dtype='float32')
     hlist = []
@@ -142,10 +164,13 @@ def make_dark(exptime=300):
             print ("reading extension {} in {}".format(j, darkfiles[i]))
             with fits.open(darkfiles[i]) as d:
                 nxb0, nxb1, nyb0, nyb1, nxd0, nxd1, nyd0, nyd1 = find_overscan(d[j].header['biassec'], d[j].header['datasec'])
-                dat[i] = d[j].data[nxd0:nxd1+1, nyd0:nyd1+1]
-                overscan0 = average(d[j].data[nxd0:nxd1+1, nyb0:nyb1+1], axis=1)
-                overscan1 = savgol_filter(overscan0, 201, 2)
-                dat[i] = dat[i] - overscan1[:,None] - fits.getdata(bias_dark_flats_dir+'/bias/bias.fits', j)  # each frame subtract bias.fits
+                dat[i] = d[j].data[nxd0:nxd1 + 1, nyd0:nyd1 + 1]
+                if apply_overscan == True:
+                    overscan0 = average(d[j].data[nxd0:nxd1+1, nyb0:nyb1+1], axis=1)
+                    overscan1 = savgol_filter(overscan0, 201, 2)
+                    dat[i] = dat[i] - overscan1[:, None] - fits.getdata(bias_dark_flats_dir + '/bias/bias.fits', j)  # each frame subtract bias.fits
+                else:
+                    dat[i] = dat[i] - fits.getdata(bias_dark_flats_dir + '/bias/bias_' + month_string + '.fits', j)  # each frame subtract bias.fits
 
         hduI = fits.ImageHDU()
         hduI.data = median(dat, axis=0)
@@ -157,7 +182,10 @@ def make_dark(exptime=300):
     hdu0.header = fits.getheader(darkfiles[0])
     hlist.insert(0, hdu0)
     hduA = fits.HDUList(hlist)
-    hduA.writeto(target_path+'dark'+str(exptime)+'.fits')
+    if apply_overscan == True:
+        hduA.writeto(target_path + 'dark' + str(exptime) + '.fits')
+    else:
+        hduA.writeto(target_path + 'dark' + str(exptime) + '_' + month_string + '.fits')
 
 
 
@@ -177,6 +205,11 @@ def make_flat(filter='ASU1'):
         ovsx = int(f[1].header['ovrscan2'])
         ny = f[1].header['naxis1'] - ovsy
         nx = f[1].header['naxis2'] - ovsx
+        month = f[0].header['date'].split('-')[1]
+        if month == '02':
+            month_string = 'feb'
+        elif month == '03':
+            month_string = 'mar'
 
     dat = zeros((n, nx, ny), dtype='float32')
     hlist = []
@@ -186,11 +219,15 @@ def make_flat(filter='ASU1'):
             print ("reading extension {} in {}".format(j, flatfiles[i]))
             with fits.open(flatfiles[i]) as d:
                 nxb0, nxb1, nyb0, nyb1, nxd0, nxd1, nyd0, nyd1 = find_overscan(d[j].header['biassec'], d[j].header['datasec'])
-                im = d[j].data[nxd0:nxd1+1, nyd0:nyd1+1]
-                overscan0 = average(d[j].data[nxd0:nxd1+1, nyb0:nyb1+1], axis=1)
-                overscan1 = savgol_filter(overscan0, 201, 2)
-                im = im - overscan1[:,None] - fits.getdata(bias_dark_flats_dir+'/bias/bias.fits', j)    # each frame subtract bias.fits, doesn't need to use dark since flats are short exposure
-                dat[i] = im/percentile(im,99)
+                im = d[j].data[nxd0:nxd1 + 1, nyd0:nyd1 + 1]
+                if apply_overscan == True:
+                    overscan0 = average(d[j].data[nxd0:nxd1+1, nyb0:nyb1+1], axis=1)
+                    overscan1 = savgol_filter(overscan0, 201, 2)
+                    im = im - overscan1[:,None] - fits.getdata(bias_dark_flats_dir+'/bias/bias.fits', j)    # each frame subtract bias.fits, doesn't need to use dark since flats are short exposure
+                    dat[i] = im / percentile(im, 99)
+                else:
+                    im = im - fits.getdata(bias_dark_flats_dir+'/bias/bias_' + month_string + '.fits', j)    # each frame subtract bias.fits, doesn't need to use dark since flats are short exposure
+                    dat[i] = im / percentile(im, 99)
 
         hduI = fits.ImageHDU()
         datm = median(dat,axis=0)
@@ -227,15 +264,28 @@ def make_biasdarksub():
 
 
         exptime = fits.getheader(filelists[i])['exptime']
-        biasfile = bias_dark_flats_dir+'/bias/bias.fits'
-        if exptime == 300.0:
-                darkfile = bias_dark_flats_dir+'/dark/dark300.fits'
-        elif exptime == 600.0:
-                darkfile = bias_dark_flats_dir+'/dark/dark600.fits'
-        else:
-                print('no proper dark frame for this file!')
-                exit()
+        month = fits.getheader(filelists[i])['date'].split('-')[1]
 
+        if month == '02':
+            month_string = 'feb'
+        elif month == '03':
+            month_string = 'mar'
+        
+        if exptime == 300.0:
+            exptime_string = '300'
+        elif exptime == 600.0:
+            exptime_string = '600'
+        else:
+            print('no proper dark frame for this file!')
+            exit()
+
+        if apply_overscan == True:
+            biasfile = bias_dark_flats_dir + '/bias/bias.fits'
+            darkfile = bias_dark_flats_dir + '/dark/dark' + exptime_string + '.fits'
+        else:
+            biasfile = bias_dark_flats_dir + '/bias/bias_' + month_string + '.fits'
+            darkfile = bias_dark_flats_dir + '/dark/dark' + exptime_string + '_' + month_string + '.fits'
+            # print('Dark frame: /dark/dark' + exptime_string + '_' + month_string + '.fits')
 
         with fits.open(filelists[i]) as im0:
             hlisti = [] 
@@ -243,13 +293,16 @@ def make_biasdarksub():
                 nxb0, nxb1, nyb0, nyb1, nxd0, nxd1, nyd0, nyd1 = find_overscan(im0[j].header['biassec'], im0[j].header['datasec'])
                 im = im0[j].data[nxd0:nxd1+1, nyd0:nyd1+1]
 
-                overscan0 = average(im0[j].data[nxd0:nxd1+1, nyb0:nyb1+1], axis=1)
-                overscan1 = savgol_filter(overscan0, 201, 2)
-
                 b = fits.getdata(biasfile, j)
                 d = fits.getdata(darkfile, j)
 
-                dat = (im - overscan1[:,None]- b - d)
+                if apply_overscan == True:
+                    overscan0 = average(im0[j].data[nxd0:nxd1 + 1, nyb0:nyb1 + 1], axis=1)
+                    overscan1 = savgol_filter(overscan0, 201, 2)
+                    dat = (im - overscan1[:, None] - b - d)
+                else:
+                    dat = (im - b - d)
+
 
                 gain = float(im0[0].header['GAIN'+str(j)])
 
@@ -285,7 +338,6 @@ def make_science():
         print('Making corrected frame for '+filelists[i].split('/')[-1]+' '+str(i)+'/'+str(n))
 
         filt = fits.getheader(filelists[i])['filter'].lower()
-        exptime = fits.getheader(filelists[i])['exptime']
         month = fits.getheader(filelists[i])['date'].split('-')[1]
         if month == '02':
             month_dir = '/twilight_flats/Feb/'
@@ -294,15 +346,24 @@ def make_science():
             month_dir = '/twilight_flats/Mar/'
             month_string = 'mar'
         flatfile = bias_dark_flats_dir+month_dir+'flat_'+filt+'_'+month_string+'.fits'
-
-        biasfile = bias_dark_flats_dir+'/bias/bias.fits'
+        exptime = fits.getheader(filelists[i])['exptime']
+        
         if exptime == 300.0:
-                darkfile = bias_dark_flats_dir+'/dark/dark300.fits'
+            exptime_string = '300'
         elif exptime == 600.0:
-                darkfile = bias_dark_flats_dir+'/dark/dark600.fits'
+            exptime_string = '600'
         else:
-                print('no proper dark frame for this file!')
-                exit()
+            print('no proper dark frame for this file!')
+            exit()
+
+        if apply_overscan == True:
+            biasfile = bias_dark_flats_dir + '/bias/bias.fits'
+            darkfile = bias_dark_flats_dir + '/dark/dark' + exptime_string + '.fits'
+        else:
+            biasfile = bias_dark_flats_dir + '/bias/bias_' + month_string + '.fits'
+            darkfile = bias_dark_flats_dir + '/dark/dark' + exptime_string + '_' + month_string + '.fits'
+            # print('Dark frame: /dark/dark' + exptime_string + '_' + month_string + '.fits')
+
 
 
         with fits.open(filelists[i]) as im0:
@@ -311,14 +372,16 @@ def make_science():
                 nxb0, nxb1, nyb0, nyb1, nxd0, nxd1, nyd0, nyd1 = find_overscan(im0[j].header['biassec'], im0[j].header['datasec'])
                 im = im0[j].data[nxd0:nxd1+1, nyd0:nyd1+1]
 
-                overscan0 = average(im0[j].data[nxd0:nxd1+1, nyb0:nyb1+1], axis=1)
-                overscan1 = savgol_filter(overscan0, 201, 2)
-
                 b = fits.getdata(biasfile, j)
                 d = fits.getdata(darkfile, j)
                 f = fits.getdata(flatfile, j)
 
-                dat = (im - overscan1[:,None]- b - d)/f
+                if apply_overscan == True:
+                    overscan0 = average(im0[j].data[nxd0:nxd1 + 1, nyb0:nyb1 + 1], axis=1)
+                    overscan1 = savgol_filter(overscan0, 201, 2)
+                    dat = (im - overscan1[:, None] - b - d) / f
+                else:
+                    dat = (im - b - d)/f
 
                 gain = float(im0[0].header['GAIN'+str(j)])
 
@@ -333,7 +396,7 @@ def make_science():
             hlisti.insert(0,hdu0i)
 
         hduAi = fits.HDUList(hlisti)
-        hduAi.writeto(target_path+'corrected_'+filelists[i].split('/')[-1])
+        hduAi.writeto(target_path+'corrected_'+filelists[i].split('/')[-1], overwrite=True)
 
 
 
@@ -370,7 +433,7 @@ def biasdarksub2corrected():
             hlisti.insert(0,hdu0i)
 
         hduAi = fits.HDUList(hlisti)
-        hduAi.writeto(filelists[i].replace('biasdarksub_','corrected_'))
+        hduAi.writeto(filelists[i].replace('biasdarksub_','corrected_'), overwrite=True)
 
 
 
